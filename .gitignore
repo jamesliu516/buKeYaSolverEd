@@ -1,0 +1,11 @@
+*.o
+*.vtk
+*.dat
+gmsh/
+bin/
+tex/
+tst/
+demo/
+step/
+doc/
+*.udb

@@ -1,0 +1,568 @@
+May, 2010: vs. 0.527
+=========================
+
+Implemented a hint by Shibo to compile the code for 64 bits 
+as well with minimal effort as dolfyn64
+
+Todo: modify gmsh.f90 because of modified *.msh file format.
+
+February, 2010: vs. 0.526
+=========================
+
+A 'user' command has been introduced useful sending infor form 
+the *.din file to the user subroutines.
+
+Some changes to the wall roughness calculation.
+
+October, 2009: vs. 0.525
+========================
+
+The limiters included (useful for starting a run with bad meshes).
+
+Some occurences of 1.e-9 changed into Small.
+
+gmsh2dolfyn included in the source.
+
+dolfyn2opendx now automatically detects if it is an full tet mesh.
+
+April, 2009: vs. 0.524
+=======================
+
+The Gmsh files rewritten, and extended. New commands:
+
+use,gmsh
+
+This default assumes that the original *.msh file is still available.
+Only results for the fluid volume and named (physical) surfaces 
+is writen. Data files appear separate.
+
+use,gmsh,full
+
+Writes everything into one *.msh file (including region 0).
+
+use,gmsh,fluid
+
+Writes only the fluid cells to one single *.msh file.
+
+- Some changes to VTK.f90.
+
+use,vtk,binary (default) or use,vtk,ascii to switch from 
+an unformatted file to a formatted file.
+
+- One InterpolateData call in OpenDX.f90 corrected.
+
+Preprocessor has been adapted: Max hinted to include a heap sort
+search by John Burkardt on the boundaries (very sensible for his 
+huge models). The second reason to alter that part is Gmsh 
+(first loop over the known boundaries then over the faces).
+
+See also: sc.fsu.edu/~burkardt and subpak.f90
+
+March, 2009: vs. 0.523
+======================
+
+Fixed the old (intended) behaviour of the gamma-command.
+"gamma,0.8,,0.5" should blend UD and CDS for U/V/W and TE/ED.
+
+January, 2009: vs. 0.522
+========================
+
+More gmsh related issues. Gmsh is a preprocessor by
+Christophe Geuzaine and Jean-François Remacle. 
+See http://geuz.org/gmsh/
+
+- Slope limiting the pressure activates slope limiting for VarPP 
+  as well; this greatly enhances the robustness of dolfyn.
+
+- Introduced a counter in the RegionData type (Reg(i)%n) which holds
+  the number of boundaries using this Region. Useful when (large)
+  holes in the definition are present.
+
+- New output gmsh post processing "use,gmsh" to activate it. 
+  Still under construction.
+
+- New default is to use the slope limiters (one can switch them off
+  of course) but especially for robustness they are needed (one 
+  can check if bad meshes are used (tedious) and switch them as 
+  needed on, but in this way it is more fool proof).
+  
+- Some cleanup in readcontrolfile2 (setting the blending default for 
+  the schemes to one instead of zero, which is no blending).
+  
+- VTK output in binary; relies on new features of Fortran2003 like
+  stream IO etc. 
+  
+- VTK output of variable names on nodes/vertices and cells now differs
+  because it helps LLNL's VisIt.
+
+January, 2009: vs. 0.521
+========================
+
+- The mass flux balancing went wrong with more than 30 regions
+  in subroutine FluxMass. Changed into a allocate/deallocate construct.
+
+December, 2008: vs. 0.520
+=========================
+
+This version introduces slope limiters and where they are applied.
+The basic command is:
+
+slope, variable, [off|BJ|VN|VA|P1][f|c|n]
+
+with variables: 
+
+u | v | w | uvw | p | k | eps | kep | T | sca,[ all | id ] 
+
+Slope limiters are needed for all tet and (very) bad meshes.
+
+Choices are:
+off Switch slope limiter off.
+BJ  Using the method by Barth & Jespersen (original).
+VN  Using the method by Venkatarishnan (BJ refined).
+VA  Using the Van Albada limiter (included only for 
+    testing purposes).
+P1  Using an adapted polynomial.
+
+The limiter can be tested on variuous points:
+c   At cell centres (conservative estimate with a damping effect).
+f   Using face centres (allow for a tiny overshoot).
+n   Using the cell nodes (considerable more effort and 
+    memory, the final result is in between `f' and `c'.
+
+Using slope limiters in combination with the LUX linear upwind 
+scheme allows for second order acuracy on all types of meshes
+(including all tet meshes). In such cases a good set of commands
+might be:
+
+scheme UVW LUX 1.0
+
+slope UVW vnf 
+slope p vnf 
+
+When needed or useful one can set the gradient method as well:
+
+grad, variable, ls | gauss[,passes]
+
+Default is Gauss' method for all the gradients and the alternative
+is the least squares method. This command allows to set or  change
+it for individual variables. 
+
+One can combine the slope limiters with the CBC'ed difference
+schemes. Please note that there is also a straight linear upwind 
+scheme called LUX which should be used when slope limiters are used.
+
+
+August, 2008: vs. 0.510
+======================
+
+- tests showed that under relaxing the pressure correction
+  steps can be beneficiary for bad meshes. question remains
+  if it is sufficient to slightly under relax (0.5, 0.8?) or to
+  set it equal to urf(VarP)? the urf-array has been extended
+  to a length of 10 (including density and pp).
+
+- the recalculations of Xn' and Xp' as in
+  _    _       _   _   _  _
+  r ,= r  - [( r - r ).n] n
+   E    e       e   E
+  
+  is too computational intensive because it's done so often. 
+  these vectors are now calculated in advance in subroutine 
+  ReadGeometry and stored in FaceData.
+
+- a slightly different form for the diffusion term has been
+  added for non-orthogonal cell neighbors (called the 
+  over corrected approach). it is part of FaceData. note that 
+  it strengthends the implicit part and therefore the 
+  robustness (and is substracted in the explicit part which
+  provides the accuracy).
+
+- introduced a left/right precondtioner ilut for bcgstab. still
+  experimental feature, requires more memory. at the moment
+  hardwired switched off in subroutine SolveMatrixA.
+
+- Gauss gradient scheme now default instead of least squares.
+  the result is better handling of (locally) bad meshes but
+  also full tetrahedral meshes should now be possible.
+
+- changed the geometry preprocessor and *.geo file to be able
+  to use names as regions (they are stored into the *.geo file)
+  as well. the name is included in RegionData.
+
+- command "sensors" to create, well..., sensors added. basically 
+  based on the particle search routines. useful for extracting
+  (using gradients) results on various points in the domain. 
+  usage is similar to particles e.g.
+  
+  set ns 8
+  use sensors $ns
+  sens         1 1 0.06249 0.06249 0.0
+  gene $ns - 1 1,,0.125 0.0 0.0
+  
+- for debugging, testing and check out purposes the "check" 
+  commands were added. two forms are available: range and 
+  average. first variant only checks the minimum and maximum
+  of the cell centered variable values. the latter computes
+  a volume weighted average (using a bandwidth to check
+  against). examples
+  
+  check u range   0.00  1.0   report
+  check v range  -1.00  0.0
+  check w average 0.0   1.e-4
+  check p range  -0.45  0.75
+  
+  if a check fails it will be reported in the form
+  " *** Test Variable V FAILED ***" which can be detected
+  in a check out script. of course when one combines "limit" 
+  with "check" no failures will appear; this combination is
+  therefore not recommended for testing purposes. the command
+  is silent successfully, unless "report" has been appended.
+  
+- some minor changes to the scalars (beyond the temperature T).
+
+- added direct disspation to wall turbulence instead of letting 
+  it evolve.
+
+- added command to limit number of maxouter iterations (see "switch").
+  (eg. "switch maxouter 4")
+
+- added command to invoke a scalar limiter to enforce (scalars)
+  to be positive or within a range (see "limit"). examples
+
+  limit K off
+  limit T lower 293.0
+  limit Scalar 1 lower 0.0
+  limit Scalar 1 upper 1.0
+  
+  (by default lower limits for k and epsilon are switched on, 
+  respectively to 1.e-9 and 1.0e-12)  
+
+  use only when needed.
+
+- math works on outlets too.
+
+- ability to switch default opendx files off ("opendx,off").
+
+- vtk output possible without boundaries ("use,vtk,fluid"), this
+  makes life easier for new paraview or visit users.
+
+- the constant module already adapted to future extensions
+  (people have been testing with other packages).
+
+- subroutine InterpolateData has been adapted a bit: 
+  for nodal results (mode=0) all boundary values ignore the values
+  from the symmetry planes. especially for 2D models the results 
+  just look better.
+
+- for testing purposes only the CDS is augmented by CD1 (CDS without
+  corrections), CD2 (CD based on gradients) and CD3 (simple average).
+
+- cleaned up write statements (using IOdef instead of '*').
+
+- cleaned up lots of dead coding/comment statements.
+
+- included "if( ScProp(is)%solve )" to the calculate scalars 
+  calling loop. 
+
+- changed output format of TrackMemory to MWords write into IOdbg.
+
+- removed ancient DoubleU, DoubleV etc stuff.
+
+- particle module moved into modules.f90
+
+- the face%area has been removed from the *.geo file.
+
+- the original cell definitions array has been taken out from
+  the preprocessor and the *.geo file.
+
+January, 2008: vs. 0.500
+========================
+
+- added restart options "restart init cell" and 
+  "restart init cell flux"; former uses cell data only
+  and ingnores stored mass fluxes, the latter reads
+  the mass fluxes as well. 
+
+- added extra echo output to a file IOrun (file *.txt)
+
+- splitted subroutine ReadControlFile; the subroutine
+  became too big with the amount of if-then-elses, 
+  this version with entries and returns makes life for compiler 
+  optimization easier (g95 had some issues, the work
+  around of g95 -O0 -c readcontrolfile.f90 is awkward).
+
+December, 2007: vs. 0.420
+=========================
+
+License changed to the Apache License, v. 2.0. The change allows
+others to distribute 'derived works' together with dolfyn.
+
+November, 2007: vs. 0.410
+=========================
+
+- "restart init" will check if Nbnd and Nfaces have changed
+  and act accordingly (ReadRestartField will only read Ncel items)
+  
+October, 2007: vs. 0.410
+========================
+
+- fixed some bugs introduced at the last stage of the may version
+  (the gradients were getting messed up)
+
+- fixed initialisation for transient run without restart (variables
+  now get the guessed value instead of simply a zero).
+  
+- "use,gauss" will give by default "use,gauss,2"
+
+- introduced some special ABL (atmosferic boundary layer)
+  features (a combination of UserInitialField, UserInlet 
+  and the command Use,FixABL...)
+  
+- Johan Jacobs extended the vtk output including particle tracks.
+
+May, 2007: vs. 0.400
+====================
+
+Starting with the implementation of alternative differencing 
+schemes (experimental features):
+
+- scheme-command: 
+
+  scheme uvw gamma 0.8
+  scheme keps gamma 0.8
+  scheme T gamma 0.8
+
+  selects gamma-scheme with 20% blending of UD (T also applies 
+  for Scalars)
+
+  choices are:
+  UD    standard upwind differencing
+  CD    central differencing (or CD1)
+  CD2   an alternative to CD1
+  LUD   linear upwind differencing
+  MIN   a scheme which blends UD, LUD and CD1
+  GAMMA a scheme which blends UD and CD1
+
+  default is still blending of a central differencing scheme (CD1) 
+  with standard upwind differencing (UD) (command 'gamma' in 
+  the din-file).
+  
+  please note that the higher order diffusive flux is still 
+  uncorrected (unfinished). also still looking for a method 
+  to correct the differencing schemes for (very) bad non-orthogonal
+  mesh connectivities.
+  
+- print-commands:
+  
+  print cells 5 100 5
+  print cells user
+  print file  some_file_name
+  
+  first call selects the cells to be printed, second one
+  selects a user subroutine UserPrintCell, finally the last 
+  call selects a file instead of the terminal. instead of cells
+  one can select wall boundaries as well.
+  
+- calculation of gradients:
+
+  use,gauss,2
+
+  selects gauss' method instead of the least squares method. the 
+  number set the number of passes (iterations).
+
+- math:
+
+  * can be used for the inlets and walls as well now
+  * case sensitivity removed
+    
+  example:
+  
+  title Leonard test semi Gamma/LS
+  scheme T gamma 1.0
+  use gauss
+
+  set T 273 + 500.
+  set rho 100000. / 287. / $T
+
+  vislam  36.4e-06
+  density $rho
+
+  set  angle 30
+  set  uoo 1.0
+  math degrees
+  math u cos $angle * $uoo
+  math v sin $angle * $uoo
+  
+  init,field,$u $v 0.0,0.0,0.0,0.0,$T
+  init,steps,0
+
+  boundary,1
+  inlet
+  $u $v 0.0
+  $rho
+  $T
+  inle
+  0.25 0.1
+
+  etc.
+  
+- preprocessor:
+
+  one small change (releasing memory/array TmpFace as
+  soon as possible)
+  
+December, 2006: vs 0.311
+========================
+
+Some modifications by Harry reversed.
+
+Main changes to the particle subroutines.
+
+In order to generate particles more general additional
+math commands have been introduced in the din-file: 
+- 'set' in order to define a variable
+- 'math' to do some math with a variable
+- 'gene' to generate particles
+
+Example 1:
+
+  set np 40
+
+  math deg
+  math a1 sin 45 * 2
+
+  use particles $np 
+
+  set vis 0.001e-6 * 1.e6
+
+  part         1 prop 1000 100.e-6
+  gene $np - 1 1 
+
+  part         1 init 1 0.0025 0.99 0.105  0.0  0.0 0.0
+  gene $np - 1 1,,,     0.01   0.00 0.000  0.0  0.0 0.0
+
+  VisLam $vis
+
+  ...
+  
+Example 2:
+
+  set x0  -0.0265
+  set y0   0.0456
+  set z0  -0.20
+
+  set x1  -0.005
+
+  set nr 8
+  set dx $x1 - $x0 / $nr
+  set dy 0.0
+  set dz 0.0
+
+  use particles $nr
+
+  part     1 prop 1000. 20.e-6
+  gene $nr - 1 1
+
+  part         1   init 1 0.5 * $dx + $x0 $y0 $z0  0.0  0.0 0.0
+  gene $nr - 1 1,,,          $dx          $dy $dz  0.0  0.0 0.0
+
+  ...
+
+Note that the syntax is quite simple from 'left to right' using
+a '$'-sign to fetch a variable. Thus the result of '0.5 * $dx + $x0' 
+(adds half dx to x0) is different to the result of '$x0 + 0.5 * $dx' 
+(adds 0.5 to x0 and multiplies the lot with dx)
+
+
+October, 2006: vs 0.311
+=======================
+
+Modifications by Harry.
+
+ - For CFD part, only a small modification according to
+   *Muzaferija's method* was carried out in subroutine
+   GradientPhi2. Then the code worked in really full-tetra meshes.
+
+ - To make output of simulations looks correctly, several
+   lines are added into InterpolateData to let dependent variables
+   at wall equal to zero.
+
+ - There are some changes in tecplt.f90.
+
+September, 2006: vs 0.310
+=========================
+
+First clean up of particle subroutines.
+
+June, 2006: vs 0.310
+====================
+
+This version includes:
+ - Various bug fixes and some clean up
+   Thanks to Bouke, Alfred, Harry
+ - Experimental feature of particles in cooperation with Harry
+ - Tecplot output written by Harry
+ - dolfyn.cfg is read by the preprocessor as well
+   (suggestion by Bouke, includes scaling and file type)
+ - user solver interface added (request by osm)
+ - tested with ifort, g95 and compaq visual fortran 6.6a
+ 
+February, 2006: vs 0.310
+=========================
+
+Merged with the patches subroutines written by Bouke Tuinstra,
+see www.home.zonnet.nl/bouke_1/dolfyn
+
+Scalars activated; partly based on Bouke's work for the patches
+as this mechanism relies on scalars.
+
+December, 2005: vs 0.301
+=========================
+
+This version includes:
+ - Multiple outlets included
+ - FluxScalar cleaned up
+
+September, 2005: vs 0.300
+=========================
+
+This version includes:
+ - Various bug fixes (thanks Bouke) and clean up
+ - Enhanced output
+ - Heat transfer with a resistance R for walls (adapt your din-file!)
+ - New commands like: relax* and gamma* (for extra options)
+ - More OpenDX output
+ - Complete rework of the VTK-output
+
+June, 2005: vs 0.210
+=====================
+
+Abandoned (for now) the linear solver based on the improved
+"vanilla" BiCGStab(2) iterative method.
+
+See also: http://www.math.uu.nl/people/vorst and
+http://www.math.utwente.nl/~botchev
+
+December, 2004: vs 0.200
+========================
+
+Testing the implementation of the Hypre Scalable Linear Solvers.
+
+See also: http://www.llnl.gov/CASC/linear_solvers
+
+September, 2004: vs 0.100
+=========================
+
+First running version containing the basic options (thermal, turbulence,
+transient).
+
+The linear solver is based on Sparskit2 by Yousef Saad.
+
+See also: http://www-users.cs.umn.edu/~saad
+Testing against the direct solver MA27 from the HSL ARCHIVE.
+
+September, 2003: vs 0.000
+=========================
+
+Work on the preprocessor completed. Firsts tests with a transported
+scalar.
