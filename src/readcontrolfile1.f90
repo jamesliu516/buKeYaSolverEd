@@ -533,7 +533,20 @@ subroutine ReadControlFile
          Gravity(2) = keyr(3)
          Gravity(3) = keyr(4)
          if( Echo ) write(*,'(1x,A,3(1x,f6.3))')'+ gravity vector = ',Gravity(1:3)
-
+		 
+	   case ('coefshearrortex')
+	     CoefShearRortex(1)=keyr(2)
+		 CoefShearRortex(2)=keyr(3)
+		 CoefShearRortex(3)=keyr(4)
+         if( Echo ) write(*,'(1x,A,3(1x,f6.3))')'+ Coef shear rortex vector = ',CoefShearRortex(1:3)
+		 
+       case ('boolshearrortex')
+         dummy = keyr(2)
+         !call check_minmax(dummy,Small,Large)
+         if( Echo ) write(*,'(1x,A,I5)')'+ yes or no shear rortex Correct = ',dummy
+         BoolShearRortex = dummy	
+		 
+		 
        case ('beta')
          dummy = keyr(2)
          call check_minmax(dummy,Small,Large)

@@ -68,6 +68,10 @@ program dolfyn
    IterStart = 0
    Time      = 0.0
    dppmax    = 0.0
+   
+ !  if ( BoolShearRortex>0 ) then
+ !      write (*,*) CoefShearRortex(1), CoefShearRortex(2), CoefShearRortex(2)
+ !  endif
 
    if( Restart > 0 )then
 

@@ -68,6 +68,9 @@ module constants
 			 TMles  = 5, TMlesdyn = 6             ! LES models >= 5
 
    integer            :: TurbModel = TMnone                   ! set default
+   
+
+  
 
    character(len=16)  :: TMnames(0:6)
                   !123456789 123456
@@ -826,7 +829,9 @@ module variables
    real :: Sigma_k   =   1.0      ! turbulence diff. coef. factors
    real :: Sigma_e   =   1.219    ! ie. turbulent Prandtl numbers
    real :: Sigma_s   =   0.9      !
-
+   integer :: BoolShearRortex=0
+   real :: CoefShearRortex(3) = 0.0  ! <= shear vector from rortex
+   
    real :: Gravity(3) =     0.0   ! <= gravity vector
    real :: Beta       =     0.001 ! expansie coef.
    real :: CpStd      =  1006.0   !
