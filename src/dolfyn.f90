@@ -3098,7 +3098,17 @@ subroutine FluxUVW
         dUdXN(3),  dVdXN(3),  dWdXN(3), &
         dUdXC(3),  dVdXC(3),  dWdXC(3), &
         dUdXD(3),  dVdXD(3),  dWdXD(3), &
-        dUdXe(3),  dVdXe(3),  dWdXe(3)
+        dUdXe(3),  dVdXe(3),  dWdXe(3), &
+		vorticityVec(3), shearVec(3), rortexVec(3) , &
+		shearHalf(3)
+  real  shearM, rortexM, ushror,vshror,wshror
+  
+  	  real :: Amat(3,3)
+	  real :: Bmat(3,3)
+	  real :: dltUmat(3,3)
+	  real :: omgMethod, retmp1, retmp2
+		
+!vorticityVec, shearVec, rortexVec, shearM, rortexM 		
 
    if( Debug > 3 ) write(IOdef,*)'*** FluxUVW'
 
@@ -3120,6 +3130,16 @@ subroutine FluxUVW
      ip = Face(i)%cell1
      in = Face(i)%cell2
      it = -1
+
+	   vorticityVec=0.0
+	   shearVec=0.0
+	   rortexVec=0.0
+	   shearM=0.0
+	   rortexM=0.0
+	   ushror=0.0
+	   vshror=0.0
+	   wshror=0.0	 
+	 
      if( in > 0 )then
        !
        ! internal cell face which points to two cells
@@ -3192,10 +3212,54 @@ subroutine FluxUVW
        !fude2 = (dUdXe(1)+dUdXe(1)) + (dUdXe(2)+dVdXe(1)) + (dUdXe(3)+dWdXe(1))
        !fvde2 = (dUdXe(2)+dVdXe(1)) + (dVdXe(2)+dVdXe(2)) + (dVdXe(3)+dWdXe(2))
        !fwde2 = (dUdXe(3)+dWdXe(1)) + (dWdXe(2)+dVdXe(3)) + (dWdXe(3)+dWdXe(3))
+	   
+!subroutine calcShRortex(dudxyz,dvdxyz,dwdxyz, vorticityVec, shearVec, rortexVec, shearM, rortexM )	 
+	   
 
-       fude = Visac * fude1
-       fvde = Visac * fvde1
-       fwde = Visac * fwde1
+	   if (BoolShearRortex > 0) then
+	    call calcShRortex(dUdXac,dVdXac,dWdXac, vorticityVec, shearVec, rortexVec, shearM, rortexM )	
+		   shearHalf=0.5*shearVec
+		   ushror= coefShearRortex(1) * (shearHalf(2)*sz- shearHalf(3)*sy) 
+		   vshror= coefShearRortex(2) * (shearHalf(3)*sx- shearHalf(1)*sz) 
+		   wshror= coefShearRortex(3) * (shearHalf(1)*sy- shearHalf(2)*sx) 	   
+		   
+		   dltUmat(1,1:3)= dUdXac
+		   dltUmat(2,1:3)= dVdXac
+		   dltUmat(3,1:3)= dWdXac
+		   retmp1=0.0
+		   retmp2=0.0
+		   
+		   Amat=0.5*(dltUmat + TRANSPOSE(dltUmat) );
+		   Bmat=0.5*(dltUmat - TRANSPOSE(dltUmat) );
+		   
+		   do iii=1,3
+		   do jjj=1,3
+		      retmp1=retmp1+ Amat(iii,jjj) ** 2
+			  retmp2=retmp2+ Bmat(iii,jjj) ** 2
+		   enddo
+		   enddo
+		   
+		   omgMethod=retmp2/(retmp1+retmp2+1.0e-6)		
+		!   write(*,*)  ushror, vshror, wshror
+		   
+		   if (omgMethod < 0.52) then
+		     ushror=0.0
+		     vshror=0.0
+		     wshror=0.0
+		   endif
+		   
+		   !ushror=coefShearRortex(1)*shearVec(1)*sx + coefShearRortex(1)*shearVec(2)*sy +  &
+		   !      coefShearRortex(1)*shearVec(3)*sz
+		   !vshror=coefShearRortex(2)*shearVec(1)*sx + coefShearRortex(2)*shearVec(2)*sy +  &
+		   !      coefShearRortex(2)*shearVec(3)*sz	
+		   !wshror=coefShearRortex(3)*shearVec(1)*sx + coefShearRortex(3)*shearVec(2)*sy +  &
+		   !      coefShearRortex(3)*shearVec(3)*sz	
+			!	 write(*,*) BoolShearRortex, coefShearRortex(1), shearVec(1), shearVec(2), shearVec(3), sz
+	   endif
+
+       fude = Visac * fude1      + ushror
+       fvde = Visac * fvde1      + vshror
+       fwde = Visac * fwde1      + wshror
 
        !
        ! implicit lower order (simple upwind)
@@ -3204,7 +3268,7 @@ subroutine FluxUVW
        fmin = min(MassFlux(i),0.0)
        fmax = max(MassFlux(i),0.0)
 
-       fuci = fmin * U(in) + fmax * U(ip)
+       fuci = fmin * U(in) + fmax * U(ip) 
        fvci = fmin * V(in) + fmax * V(ip)
        fwci = fmin * W(in) + fmax * W(ip)
 
@@ -3232,7 +3296,7 @@ subroutine FluxUVW
        !
        ! assemble the two source terms
        !
-       Su(ip) = Su(ip) - blend_u + fude - fudi
+       Su(ip) = Su(ip) - blend_u + fude - fudi 
        Su(in) = Su(in) + blend_u - fude + fudi
 
        Sv(ip) = Sv(ip) - blend_v + fvde - fvdi
