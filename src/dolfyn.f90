@@ -3106,7 +3106,9 @@ subroutine FluxUVW
   	  real :: Amat(3,3)
 	  real :: Bmat(3,3)
 	  real :: dltUmat(3,3)
-	  real :: omgMethod, retmp1, retmp2
+	  real :: omgMethod, retmp1, retmp2, ushtmp,vshtmp, omgBar
+	  integer :: boolRort
+	  
 		
 !vorticityVec, shearVec, rortexVec, shearM, rortexM 		
 
@@ -3138,7 +3140,9 @@ subroutine FluxUVW
 	   rortexM=0.0
 	   ushror=0.0
 	   vshror=0.0
-	   wshror=0.0	 
+	   wshror=0.0	
+	   ushtmp=0.0
+	   vshtmp=0.0
 	 
      if( in > 0 )then
        !
@@ -3217,7 +3221,7 @@ subroutine FluxUVW
 	   
 
 	   if (BoolShearRortex > 0) then
-	    call calcShRortex(dUdXac,dVdXac,dWdXac, vorticityVec, shearVec, rortexVec, shearM, rortexM )	
+	    call calcShRortex(dUdXac,dVdXac,dWdXac, vorticityVec, shearVec, rortexVec, shearM, rortexM, boolRort )	
 		   shearHalf=0.5*shearVec
 		   ushror= coefShearRortex(1) * (shearHalf(2)*sz- shearHalf(3)*sy) 
 		   vshror= coefShearRortex(2) * (shearHalf(3)*sx- shearHalf(1)*sz) 
@@ -3239,14 +3243,34 @@ subroutine FluxUVW
 		   enddo
 		   enddo
 		   
-		   omgMethod=retmp2/(retmp1+retmp2+1.0e-6)		
+		   omgMethod=retmp2/(retmp1+retmp2+1.0e-6)	
+		   omgBar=(abs(omgMethod-0.5)+ (omgMethod-0.5))/(abs(2* omgMethod-1.0) + 1.0e-6)*omgMethod
+		   
+		   
+		   ushror = omgBar*ushror
+		   vshror = omgBar*vshror
+		   wshror = omgBar*wshror
+		   
+		   
 		!   write(*,*)  ushror, vshror, wshror
 		   
-		   if (omgMethod < 0.52) then
-		     ushror=0.0
-		     vshror=0.0
-		     wshror=0.0
-		   endif
+		   
+	     !ushtmp=0.5*sqrt((dVdXac(2)-dUdXac(1))**2 + (dVdXac(1)+dUdXac(2))**2) 
+	     !vshtmp=ushtmp
+	     !ushror=omgBar*coefShearRortex(1)*ushtmp*(sx+sy+sz)
+		 !vshror=omgBar*coefShearRortex(1)*ushtmp*(sx+sy+sz) 
+		 !wshror=0.0		   
+	   
+		   
+	   
+		!  if (omgMethod < 0.52) then
+		!!   if (BoolRort==0) then
+		!     ushror=0.0 
+		!     vshror=0.0 
+		!     wshror=0.0			 
+		!	 !ushtmp=0.0
+		!	 !vshtmp=0.0
+		!   endif
 		   
 		   !ushror=coefShearRortex(1)*shearVec(1)*sx + coefShearRortex(1)*shearVec(2)*sy +  &
 		   !      coefShearRortex(1)*shearVec(3)*sz
@@ -3255,11 +3279,18 @@ subroutine FluxUVW
 		   !wshror=coefShearRortex(3)*shearVec(1)*sx + coefShearRortex(3)*shearVec(2)*sy +  &
 		   !      coefShearRortex(3)*shearVec(3)*sz	
 			!	 write(*,*) BoolShearRortex, coefShearRortex(1), shearVec(1), shearVec(2), shearVec(3), sz
+		   
 	   endif
-
+	   
        fude = Visac * fude1      + ushror
        fvde = Visac * fvde1      + vshror
        fwde = Visac * fwde1      + wshror
+	   
+
+	   
+       !fude = Visac * fude1      + coefShearRortex(1) *ushtmp *(sx+sy+sz)
+       !fvde = Visac * fvde1      + coefShearRortex(1) * vshtmp *(sx+sy+sz)
+       !fwde = Visac * fwde1     	   
 
        !
        ! implicit lower order (simple upwind)
